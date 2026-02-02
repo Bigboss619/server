@@ -61,36 +61,45 @@ app.post("/api/customers/register", async (req, res) => {
 });
 
 // ---- CUSTOMER LOGIN ----
-app.post("/api/customers/login", async (req, res) => {
+ const login = async (email, password, role = 'customer') => {
+            // setLoading(true);
+            const endpoint = role === 'agent' ? '/api/agent/login' : '/api/customers/login';
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password }),
+                });
 
-    const { email, password } = req.body;
+                const data = await res.json().catch(() => null);
 
+                if(!res.ok){
+                    return { success: false, error: data.error || "Login failed" };
+                }
 
+                setSession(data.session);
+                setUser(data.user);
+                localStorage.setItem(
+                    "session",
+                    JSON.stringify({
+                        session: data.session,
+                        user: data.user
+                        })
+                );
 
-    if(!email || !password){
-      return res.status(400).json({error: "Email and password are required" });
-    }
+                await fetchUserProfile(data.user.id);
 
-    try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+                setSuccessMessage("Login successful!");
+                // setLoading(false);
 
-        if(error){
-          return res.status(401).json({ error: "Invalid email or password"});
-        }
-        
-        return res.json({
-          success: true,
-          user: data.user,
-          session: data.session,
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error"});
-  }
-});
+                return { success: true };
+            } catch (err) {
+                console.error("Login error:", err);
+                // setLoading(false);
+                return { success: false, error: "An error occurred during login." };
+            }
+        };
+
 
 // ---- CUSTOMER INFORMATION -----
 app.get("/api/customers/profile/:id", async (req, res) => {
