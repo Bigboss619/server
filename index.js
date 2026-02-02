@@ -61,44 +61,40 @@ app.post("/api/customers/register", async (req, res) => {
 });
 
 // ---- CUSTOMER LOGIN ----
- const login = async (email, password, role = 'customer') => {
-            // setLoading(true);
-            const endpoint = role === 'agent' ? '/api/agent/login' : '/api/customers/login';
-            try {
-                const res = await fetch(`${API_BASE}${endpoint}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password }),
-                });
+app.post("/api/customers/login", async (req, res) => {
 
-                const data = await res.json().catch(() => null);
+    const { email, password } = req.body;
 
-                if(!res.ok){
-                    return { success: false, error: data.error || "Login failed" };
-                }
+    if(!email || !password){
+      return res.status(400).json({error: "Email and password are required" });
+    }
 
-                setSession(data.session);
-                setUser(data.user);
-                localStorage.setItem(
-                    "session",
-                    JSON.stringify({
-                        session: data.session,
-                        user: data.user
-                        })
-                );
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-                await fetchUserProfile(data.user.id);
-
-                setSuccessMessage("Login successful!");
-                // setLoading(false);
-
-                return { success: true };
-            } catch (err) {
-                console.error("Login error:", err);
-                // setLoading(false);
-                return { success: false, error: "An error occurred during login." };
-            }
-        };
+        if(error){
+          return res.status(401).json({ 
+            success: false,
+            error: "Invalid email or password"
+          });
+        }
+        
+        return res.json({
+          success: true,
+          user: data.user,
+          session: data.session,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ 
+          success: false,
+          error: "Internal server error"
+        });
+  }
+});
 
 
 // ---- CUSTOMER INFORMATION -----
